@@ -6,7 +6,6 @@
   (x ::= variable-not-otherwise-mentioned)
   
   (es ::= x (fun x (x T) (es T)) (es es) (ref es) (! es) (:= es es) n (+ es es))
-  (Γ ::= ((x T) ...))
   (T ::= int (T -> T) dyn (ref T))
   (e ::= (error x S) x v (fun x x e) (e e) (+ e e) (! e) (:= e e) (=> e T T) (d=> e (S e)))
   (S ::= int -> ref dyn)
@@ -27,14 +26,14 @@
 
   [
    ---
-   (~> Γ n n int)]
+   (~> n n int)]
 
   [
    ---
-   (~> Γ x x (Γ x))]
+   (~> x x (Γ x))]
 
-  [(~> Γ es_1 e_1 int)
-   (~> Γ es_2 e_2 int)
+  [(~> es_1 e_1 int)
+   (~> es_2 e_2 int)
    ---
    (~> (+ es_1 es_2) (+ e e) int)]
 
@@ -43,8 +42,9 @@
 
 (define-metafunction transient-λ
   delta : e -> e
-  [(delta (+ e_1 e_2)) ,(+ (term e_1) (term e_2))])
-
+  [(delta (+ e_1 e_2)) ,(+ (term e_1) (term e_2))]
+  [(delta (=> e T T)) ?]
+  [(delta (d=> e_1 S e_2)) ?])
    
 (define-metafunction transient-λ
   type-check : e S ->
