@@ -38,9 +38,32 @@
    ---
    (~> (+ es_1 es_2) (+ e e) int)]
 
-  [(
+ 
   )
 
+(define-judgment-form transient-λ
+  #:mode (|| I I)
+  #:contract (|| e e)
+
+  [
+
+   ]
+  
+)
+
+(define-judgment-form transient-λ
+  #:mode (> I O)
+  #:contract (> e e)
+  [
+ 
+)
+
+(define-judgment-form transient-λ
+  #:mode (~ I O)
+  #:contract (~ e e)
+
+  )
+   
 (define-metafunction transient-λ
   delta : e -> e
   [(delta (+ e_1 e_2)) ,(+ (term e_1) (term e_2))])
