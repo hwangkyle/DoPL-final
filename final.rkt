@@ -6,7 +6,7 @@
   (x ::= variable-not-otherwise-mentioned)
   
   (es ::= x (fun x (x T) (es T)) (es es) (ref es) (! es) (:= es es) n (+ es es))
-  (Γ ::= () ((x T) Γ)) ;((x T) ...))
+  (Γ ::= ((x T) ...))
   (T ::= int (T -> T) dyn (ref T))
   (e ::= (error x S) x v (fun x x e) (e e) (+ e e) (! e) (:= e e) (=> e T T) (d=> e (S e)))
   (S ::= int -> ref dyn)
@@ -39,28 +39,30 @@
                        (~> Γ (+ es_1 es_2) (+ (=> e_1 T_1 int) (=> e_2 T_2 int)) int)]
 
   [(~>
-    (cons (f T_1 -> T_2)
-          (cons (x T_1) Γ))
+    ((x_1 T_1 -> T_2) (x_2 T_1) (x T) ...)
     es
     e
     T_3)
-   
+   (|| T_1 S)
    (~ T_2 T_3)
    ---
-   (~> Γ
+   (~> ((x T) ...)
        (fun x_1 (x_2 T_1) (es T_2))
-       (fun x_1 x_2 (substitute e x_2 (d=> x_2 (|| T_1 ?))))
+       (fun x_1 x_2 (substitute e x_2 (d=> x_2 S)))
        int)]
 
-  [(~> Γ es_1 e_1 T) (> T (T_1 -> T_2)) (fresh f)
-                     (~> Γ es_2 e_2 T_3) (~ T_1 T_3)
-                     ---
-                     (~> Γ
-                         (es_1 es_2)
-                         (substitute (d=> (f (=> e_2 T_3 T_1)) (|| T_2 ?) f)
-                                     f
-                                     (=> e_1 T (T_1 -> T_2)))
-                         T_2)]
+  [(~> Γ es_1 e_1 T)
+   (> T (T_1 -> T_2))
+   (~> Γ es_2 e_2 T_3)
+   (~ T_1 T_3)
+   (where f (fresh Γ))
+   ---
+   (~> Γ
+       (es_1 es_2)
+       (substitute (d=> (f (=> e_2 T_3 T_1)) (|| T_2 ?) f)
+                   f
+                   (=> e_1 T (T_1 -> T_2)))
+       T_2)]
 
   [(~> Γ es e T)
    ---
@@ -68,7 +70,7 @@
 
   [(~> Γ es e T) (> T (ref T_1)) (fresh x)
    ---
-   (~> Γ (! es) (substitute (d=> (! x) ((|| T_1 ?) x))
+   (~> Γ (! es) (substitute (d=> (! x) ((|| T_1) x))
                             x
                             (=> e T (ref T_1))))]
 
@@ -79,7 +81,7 @@
   )
 
 (define-judgment-form transient-λ
-  #:mode (|| I I)
+  #:mode (|| I O)
   #:contract (|| T S)
 
   [
@@ -100,7 +102,7 @@
   )
 
 (define-judgment-form transient-λ
-  #:mode (> I I)
+  #:mode (> I O)
   #:contract (> T T)
   [
    ---
@@ -120,7 +122,7 @@
   )
 
 (define-judgment-form transient-λ
-  #:mode (~ I O)
+  #:mode (~ I I)
   #:contract (~ T T)
   [
    ---
@@ -145,12 +147,16 @@
   )
 
 (define-metafunction transient-λ
-  Γ-to-vars : Γ -> list
-  [(Γ-to-vars ()) ()]
-  [(Γ-to-vars ((x T) Γ)) (x (fresh Γ))])
+  Γ-to-vars : Γ -> (x ...)
+  [(Γ-to-vars ((x T) ...)) (x ...)])
 
-;(define-metafunction transient-λ
-  
+(define-metafunction transient-λ
+  new-name : (x ...) -> x
+  [(new-name (x ...)) (term (gensym (string-append apply (map symbol->string ,(x ...)))))])
+
+(define-metafunction transient-λ
+  fresh : Γ -> x
+  [(fresh Γ) (new-name (Γ-to-vars Γ))])
 
 (define-metafunction transient-λ
   delta : e -> e
