@@ -20,6 +20,7 @@
   (L ::= intq ->q refq dyn)
   (q ::= ϵ)
 |#)
+(default-language transient-λ)
 
 (define-judgment-form transient-λ
   #:mode (~> I I O O)
@@ -56,14 +57,16 @@
    (~> Γ es_2 e_2 T_3)
    (~ T_1 T_3)
    (where f (fresh Γ))
+   (|| T_2 S)
    ---
    (~> Γ
        (es_1 es_2)
-       (substitute (d=> (f (=> e_2 T_3 T_1)) (|| T_2 ?) f)
+       (substitute (d=> (f (=> e_2 T_3 T_1)) S f)
                    f
                    (=> e_1 T (T_1 -> T_2)))
        T_2)]
 
+  #|
   [(~> Γ es e T)
    ---
    (~> Γ (ref es) (ref e) (ref T))]
@@ -78,6 +81,7 @@
                      (~> Γ es_2 e_2 T_2) (~ T_1 T_2)
                      ---
                      (~> Γ (:= es_1 es_2) (:= (=> e_1 T (ref T_1)) (=> e_2 T_2 T_1)) int)]
+  |#
   )
 
 (define-judgment-form transient-λ
@@ -96,7 +100,7 @@
    ---
    (|| (T_1 -> T_2) ->)]
 
-  [
+  #;[
    ---
    (|| (ref T) ref)]
   )
@@ -104,13 +108,13 @@
 (define-judgment-form transient-λ
   #:mode (> I O)
   #:contract (> T T)
-  [
+  #|[
    ---
    (> (ref T) (ref T))]
 
   [
    ---
-   (> dyn (ref dyn))]
+   (> dyn (ref dyn))]|#
 
   [
    ---
@@ -136,7 +140,7 @@
    ---
    (~ T dyn)]
 
-  [(~ T_1 T_2)
+  #;[(~ T_1 T_2)
    ---
    (~ (ref T_1) (ref T_2))]
 
@@ -152,58 +156,30 @@
 
 (define-metafunction transient-λ
   new-name : (x ...) -> x
-  [(new-name (x ...)) (term (gensym (string-append apply (map symbol->string ,(x ...)))))])
+  [(new-name (x ...)) (term ,(gensym (string-append apply (map symbol->string (term (x ...))))))])
 
 (define-metafunction transient-λ
   fresh : Γ -> x
   [(fresh Γ) (new-name (Γ-to-vars Γ))])
 
-(define-metafunction transient-λ
-  delta : e -> e
-  [(delta (+ e_1 e_2)) ,(+ (term e_1) (term e_2))])
+; ---------
+; TESTS
+; ---------
+(test-judgment-holds (|| dyn dyn))
+(test-judgment-holds (|| int int))
+(test-judgment-holds (|| (int -> int) ->))
+(test-judgment-holds (|| ((int -> int) -> (dyn -> dyn)) ->))
 
-   
-(define-metafunction transient-λ
-  type-check : e S ->
-  [(type-check e S) idk])
-   
-  
-(define-metafunction transient-λ
-  Γ : es -> T
-  [(Γ (fun x (x T_1) (es T_2))) (T_1 -> T_2)]
-  [(Γ (ref es)) (ref (Γ es))]
-  [(Γ n) int]
-  [(Γ x) dyn] ;; maybe fix later
-  )
-#|
-(+ 1 2) 3
-(+ (1::int=>int) (2::int=>int)) 3 or (3::int=>int)
-(+ (1 d=> int e) (2 d=> int e)) 
-|#
-; cast function
-(define-metafunction transient-λ
-  cast : e T -> e
-  [(cast e T) (=> e )]
-  )
+(test-judgment-holds (> dyn (dyn -> dyn)))
+(test-judgment-holds (> (int -> int) (int -> int)))
+(test-judgment-holds (> (int -> (int -> dyn)) (int -> (int -> dyn))))
 
-(define-metafunction transient-λ
-  translate : es -> e
-  [(translate x)
-   ((Γ x) x)]
-  [(translate (+ es_1 es_2))
-   (+ (cast es_1 int) (cast es_2 int))]
-  
-  )
-
-; Section 4.2
-(define -->
-  (reduction-relation
-   transient-λ
-
-   ; (--> function) : heap address pointing to function
-
-   ; (--> function-application) : find func from heap then β-reduction
-
-   ; (--> cast-expressions) : ...
-   )
-  )
+(test-judgment-holds (~ int int))
+(test-judgment-holds (~ dyn int))
+(test-judgment-holds (~ dyn dyn))
+(test-judgment-holds (~ dyn (int -> dyn)))
+(test-judgment-holds (~ int dyn))
+(test-judgment-holds (~ (int -> dyn) dyn))
+(test-judgment-holds (~ (int -> dyn) (int -> dyn)))
+(test-judgment-holds (~ (int -> dyn) (dyn -> dyn)))
+(test-judgment-holds (~ (dyn -> dyn) ((int -> dyn) -> (int -> ((dyn -> int) -> (int -> int))))))
