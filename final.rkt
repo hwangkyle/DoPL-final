@@ -3,12 +3,12 @@
 
 (define-language transient-λ
   (n ::= number)
-  (x ::= variable-not-otherwise-mentioned)
+  (x f ::= variable-not-otherwise-mentioned)
   
-  (es ::= x (fun x (x T) (es T)) (es es) (ref es) (! es) (:= es es) n (+ es es))
+  (es ::= x (fun f (x T) (es T)) (es es) (ref es) (! es) (:= es es) n (+ es es))
   (Γ ::= ((x T) ...))
   (T ::= int (T -> T) dyn (ref T))
-  (e ::= (error x S) x v (fun x x e) (e e) (+ e e) (! e) (:= e e) (=> e T T) (d=> e (S e)))
+  (e ::= (error x S) x v (fun f x e) (e e) (+ e e) (! e) (:= e e) (=> e T T) (d=> e (S e)))
   (S ::= int -> ref dyn)
   (a ::= number)
   
@@ -38,7 +38,7 @@
                        (~> Γ (+ es_1 es_2) (+ (=> e_1 T_1 int) (=> e_2 T_2 int)) int)]
 
   [(~>
-    ((x_1 T_1 -> T_2) (x_2 T_1) (x T) ...)
+    ((f T_1 -> T_2) (x_1 T_1) (x T) ...)
     es
     e
     T_3)
@@ -46,15 +46,15 @@
    (~ T_2 T_3)
    ---
    (~> ((x T) ...)
-       (fun x_1 (x_2 T_1) (es T_2))
-       (fun x_1 x_2 (substitute e x_2 (d=> x_2 S)))
+       (fun f (x_1 T_1) (es T_2))
+       (fun f x_1 (substitute e x_1 (d=> x_1 S)))
        int)]
 
   [(~> Γ es_1 e_1 T)
    (> T (T_1 -> T_2))
    (~> Γ es_2 e_2 T_3)
    (~ T_1 T_3)
-   (where f (fresh Γ))
+   (where f (fresh-Γ Γ))
    (|| T_2 S)
    ---
    (~> Γ
@@ -117,34 +117,14 @@
   )
 
 (define-metafunction transient-λ
-  Γ-to-vars : Γ -> (x ...)
-  [(Γ-to-vars ((x T) ...)) (x ...)])
+  fresh-Γ : Γ -> x
+  [(fresh-Γ Γ) (new-name (Γ-to-vars Γ))])
 
 (define-metafunction transient-λ
-  new-name : (x ...) -> x
-  [(new-name (x ...)) (term ,(gensym (string-append apply (map symbol->string (term (x ...))))))])
+  fresh-σ : σ -> a
+  [(fresh-σ σ) (new-addr (σ-to-addrs σ))])
 
-(define-metafunction transient-λ
-  σ-to-addrs : σ -> (a ...)
-  [(σ-to-addrs ((a h) ...)) (a ...)])
 
-(define-metafunction transient-λ
-  new-addr : (a ...) -> a
-  [(new-addr (a ...)) ,(max ,(flatten (term (a ...))))])
-
-; make new fresh function
-(define-metafunction transient-λ
-  fresh : Γ or σ -> x or a
-  [(fresh Γ) (new-name (Γ-to-vars Γ))]
-  [(fresh σ) (new-addr (σ-to-addrs σ))])
-
-(define -->
-  (reduction-relation
-   transient-λ
-
-   [--> ((fun x_1 x_2 e) ((a_1 h_1) ...)
-        (a ((a (λ (x) e)) (a_1 h_1) ...))
-        (side-condition 
 
 (define-judgment-form transient-λ
   #:mode (hastype I I I)
@@ -157,7 +137,7 @@
    ---
    (hastype σ v dyn)]
 
-  [(redex-match? transient-λ (λ (x) e) (find-σ a σ))
+  [(side-condition ,(redex-match? transient-λ (λ (x) e) (term (find-σ a σ))))
    ---
    (hastype σ a ->)]
   )
@@ -174,6 +154,24 @@
   find-σ : a σ -> h
   [(find-σ a ((a h) (a_1 h_1) ...)) h]
   [(find-σ a ((a_1 h_1) (a_2 h_2) ...)) (find-σ a ((a_2 h_2) ...))])
+
+(define-metafunction transient-λ
+  Γ-to-vars : Γ -> (x ...)
+  [(Γ-to-vars ((x T) ...)) (x ...)])
+
+(define-metafunction transient-λ
+  new-name : (x ...) -> x
+  [(new-name (x ...))  ,(gensym (apply string-append (map symbol->string (term (x ...)))))])
+
+(define-metafunction transient-λ
+  σ-to-addrs : σ -> (a ...)
+  [(σ-to-addrs ((a h) ...)) (a ...)])
+
+(define-metafunction transient-λ
+  new-addr : (a ...) -> a
+  [(new-addr (a ...)) ,(if (< 0 (length (term (a ...))))
+                           (+ 1 (apply max (term (a ...))))
+                           0)])
 
 ; ---------
 ; TESTS
@@ -203,3 +201,5 @@
 (test-judgment-holds (~ (int -> dyn) (int -> dyn)))
 (test-judgment-holds (~ (int -> dyn) (dyn -> dyn)))
 (test-judgment-holds (~ (dyn -> dyn) ((int -> dyn) -> (int -> ((dyn -> int) -> (int -> int))))))
+
+;(test-judgment-holds (hastype () 
