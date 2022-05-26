@@ -55,12 +55,18 @@
                            (term (addr (+ 1 (apply max (term (a ...))))))
                            (term (addr 0)))])
 
+(define-metafunction transient-λ
+  v-tag : v -> S
+  [(v-tag n) int]
+  [(v-tag a) dyn])
+
 ;-----------
 ; FUNCTIONS
 ;-----------
 
 ;--- FIGURE 3 ---
 
+; Γ - es ~> e:T
 (define-judgment-form transient-λ
   #:mode (~> I I O O)
   #:contract (~> Γ es e T)
@@ -83,7 +89,7 @@
     es
     e
     T_3)
-   (|| T_1 S)
+   (where S (|| T_1))
    (~ T_2 T_3)
    ---
    (~> ((x T) ...)
@@ -96,7 +102,7 @@
    (~> Γ es_2 e_2 T_3)
    (~ T_1 T_3)
    (where f (fresh-Γ Γ))
-   (|| T_2 S)
+   (where S (|| T_2))
    ---
    (~> Γ
        (es_1 es_2)
@@ -106,21 +112,11 @@
        T_2)]
   )
 
-(define-judgment-form transient-λ
-  #:mode (|| I O)
-  #:contract (|| T S)
-
-  [
-   ---
-   (|| dyn dyn)]
-
-  [
-   ---
-   (|| int int)]
-
-  [
-   ---
-   (|| (T_1 -> T_2) ->)]
+(define-metafunction transient-λ
+  || : T -> S
+  [(|| dyn) dyn]
+  [(|| int) int]
+  [(|| (T_1 -> T_2)) ->]
   )
 
 (define-judgment-form transient-λ
@@ -192,23 +188,25 @@
 
    [--> ((=> v T_1 T_2) σ)
         (v σ)
-        (judgment-holds (|| v S))
-        (judgment-holds (hastype σ v S))
+        (where S (|| T_2))
+        (side-condition (judgment-holds (hastype σ v S)))
         λ4]
 
    [--> ((=> v T_1 T_2) σ)
-        error
+        (error σ) ; σ not needed, i think, but kept just in case
+        (where S (|| T_2))
+        (side-condition (not (judgment-holds (hastype σ v S))))
         λ5]
 
 
    [--> ((d=> v (S a)) σ)
         (v σ)
-        (judgment-holds (|| v S))
-        (judgment-holds (hastype σ v S))
+        (side-condition (judgment-holds (hastype σ v S)))
         λ6]
 
    [--> ((d=> v (S a)) σ)
-        error
+        (error σ)
+        (side-condition (not (judgment-holds (hastype σ v S))))
         λ7]
    ))
 
@@ -239,10 +237,12 @@
 (test-judgment-holds (~> ((asdf int) (fdsa dyn)) asdf asdf int))
 ; TODO: more tests
 
+#|
 (test-judgment-holds (|| dyn dyn))
 (test-judgment-holds (|| int int))
 (test-judgment-holds (|| (int -> int) ->))
 (test-judgment-holds (|| ((int -> int) -> (dyn -> dyn)) ->))
+|#
 
 (test-judgment-holds (> dyn (dyn -> dyn)))
 (test-judgment-holds (> (int -> int) (int -> int)))
@@ -290,3 +290,69 @@
        (term (+ 1 2))
        )))))
  (term 3))
+
+(test-equal
+ (first
+  (term
+   ,(first
+     (apply-reduction-relation*
+      -->λ
+      (load-lang
+       (term (=> 1 int int))
+       )))))
+ (term 1))
+
+(test-equal
+ (first
+  (term
+   ,(first
+     (apply-reduction-relation*
+      -->λ
+      (load-lang
+       (term (=> 1 int dyn))
+       )))))
+ (term 1))
+
+(test-equal
+ (first
+  (term
+   ,(first
+     (apply-reduction-relation*
+      -->λ
+      (load-lang
+       (term (=> 1 int (int -> int)))
+       )))))
+ (term error))
+
+(test-equal
+ (first
+  (term
+   ,(first
+     (apply-reduction-relation*
+      -->λ
+      (load-lang
+       (term (d=> 1 (int (addr 0))))
+       )))))
+ (term 1))
+
+(test-equal
+ (first
+  (term
+   ,(first
+     (apply-reduction-relation*
+      -->λ
+      (load-lang
+       (term (d=> 1 (dyn (addr 0))))
+       )))))
+ (term 1))
+
+(test-equal
+ (first
+  (term
+   ,(first
+     (apply-reduction-relation*
+      -->λ
+      (load-lang
+       (term (d=> 1 (-> (addr 0))))
+       )))))
+ (term error))
