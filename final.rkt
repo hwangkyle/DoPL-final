@@ -9,13 +9,13 @@
   (es ::= x (fun f (x T) (es T)) (es es) (ref es) (! es) (:= es es) n (+ es es))
   (Γ ::= ((x T) ...))
   (T ::= int (T -> T) dyn (ref T))
-  (e ::= (error x S) x v (fun f x e) (e e) (+ e e) (! e) (:= e e) (=> e T T) (d=> e (S e)))
+  (e ::= x v (fun f x e) (e e) (+ e e) (! e) (:= e e) (=> e T T) (d=> e (S e)))
   (S ::= int -> ref dyn)
-  (a ::= number)
+  (a ::= (addr number))
   
   ;--- FIGURE 4 ---
   (E ::= hole (E e) (v E) (+ E e) (+ v E) (ref E) (! E) (:= E e) (=> E T T) (d=> E (S e)) (d=> v S E))
-  (γ ::= (e σ))
+  (γ ::= (e σ) error)
   (v ::= n a)
   (σ ::= ((a h) ...))
   (h ::= (λ (x) e) v)
@@ -52,8 +52,8 @@
 (define-metafunction transient-λ
   new-addr : (a ...) -> a
   [(new-addr (a ...)) ,(if (< 0 (length (term (a ...))))
-                           (+ 1 (apply max (term (a ...))))
-                           0)])
+                           (term (addr (+ 1 (apply max (term (a ...))))))
+                           (term (addr 0)))])
 
 ;-----------
 ; FUNCTIONS
@@ -174,13 +174,14 @@
    transient-λ
 
    [--> ((fun f x e) ((a_1 h_1) ...))
-        (a ((a (λ (x) e)) (a_1 h_1) ...))
+        (a ((a (λ (x) (substitute e f a))) (a_1 h_1) ...))
         (where a (fresh-σ ((a_1 h_1) ...)))
         λ1]
 
    [--> ((a v) σ)
-        (?)
+        ((substitute e x v) σ)
         (side-condition (redex-match? transient-λ (λ (x) e) (term (find-σ a σ))))
+        (where (λ (x) e) (find-σ a σ))
         λ2]
 
    
@@ -196,7 +197,7 @@
         λ4]
 
    [--> ((=> v T_1 T_2) σ)
-        error ; add this somewhere
+        error
         λ5]
 
 
@@ -207,7 +208,7 @@
         λ6]
 
    [--> ((d=> v (S a)) σ)
-        error ; again
+        error
         λ7]
    ))
 
@@ -232,7 +233,7 @@
 ; TESTS
 ;-------
 (test-equal (term (find-Γ asdf ((qwer dyn) (asdf int) (poiu (int -> int))))) (term int))
-(test-equal (term (find-σ 2 ((1 9) (2 8) (3 7)))) (term 8))
+(test-equal (term (find-σ (addr 2) (((addr 1) 9) ((addr 2) 8) ((addr 3) 7)))) (term 8))
 
 (test-judgment-holds (~> () 1 1 int))
 (test-judgment-holds (~> ((asdf int) (fdsa dyn)) asdf asdf int))
@@ -258,12 +259,11 @@
 (test-judgment-holds (~ (dyn -> dyn) ((int -> dyn) -> (int -> ((dyn -> int) -> (int -> int))))))
 
 (test-judgment-holds (hastype () 1 int))
-(test-judgment-holds (hastype ((0 1) (1 (λ (asdf) 3))) 1 int))
+(test-judgment-holds (hastype (((addr 0) 1) ((addr 1) (λ (asdf) 3))) 1 int))
 (test-judgment-holds (hastype () 1 dyn))
-(test-judgment-holds (hastype ((0 1) (1 (λ (asdf) 3))) 1 dyn))
-; we have troubles below
-(test-judgment-holds (hastype () 1 ->))
-(test-judgment-holds (hastype ((0 1) (1 (λ (asdf) 3))) 1 ->))
+(test-judgment-holds (hastype (((addr 0) 1) ((addr 1) (λ (asdf) 3))) 1 dyn))
+; (test-judgment-holds (hastype () (addr 1) ->))
+(test-judgment-holds (hastype (((addr 0) 1) ((addr 1) (λ (asdf) 3))) (addr 1) ->))
 
 ; lazy coding: assumes p is a valid program e
 (define (load-lang p)
@@ -277,7 +277,7 @@
      (load-lang
       (term (fun f x 1))
       ))))
- (term (0 ((0 (λ (x) 1))))
+ (term ((addr 0) (((addr 0) (λ (x) 1))))
        ))
 
 (test-equal
