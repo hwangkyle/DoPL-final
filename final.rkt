@@ -237,12 +237,10 @@
 (test-judgment-holds (~> ((asdf int) (fdsa dyn)) asdf asdf int))
 ; TODO: more tests
 
-#|
-(test-judgment-holds (|| dyn dyn))
-(test-judgment-holds (|| int int))
-(test-judgment-holds (|| (int -> int) ->))
-(test-judgment-holds (|| ((int -> int) -> (dyn -> dyn)) ->))
-|#
+(test-equal (term (|| dyn)) (term dyn))
+(test-equal (term (|| int)) (term int))
+(test-equal (term (|| (int -> int))) (term ->))
+(test-equal (term (|| ((int -> int) -> (dyn -> dyn)))) (term ->))
 
 (test-judgment-holds (> dyn (dyn -> dyn)))
 (test-judgment-holds (> (int -> int) (int -> int)))
