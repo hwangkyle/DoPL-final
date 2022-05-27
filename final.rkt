@@ -14,7 +14,7 @@
   (a ::= (addr number))
   
   ;--- FIGURE 4 ---
-  (E ::= hole (E e) (v E) (+ E e) (+ v E) (ref E) (! E) (:= E e) (=> E T T) (d=> E (S e)) (d=> v S E))
+  (E ::= hole (E e) (v E) (+ E e) (+ v E) (ref E) (! E) (:= E e) (=> E T T) (d=> E (S e)) (d=> v (S E)))
   (γ ::= (e σ) error)
   (v ::= n a)
   (σ ::= ((a h) ...))
@@ -27,11 +27,15 @@
 ;---------
 ; HELPERS
 ;---------
+; searches through Γ and returns the type T of x.
+; assumes x is in Γ
 (define-metafunction transient-λ
   find-Γ : x Γ -> T
   [(find-Γ x ((x T) (x_1 T_1) ...)) T]
   [(find-Γ x ((x_1 T_1) (x_2 T_2) ...)) (find-Γ x ((x_2 T_2) ...))])
 
+; searches through σ and returns h associated with address a.
+; assumes a is in σ
 (define-metafunction transient-λ
   find-σ : a σ -> h
   [(find-σ a ((a h) (a_1 h_1) ...)) h]
@@ -55,11 +59,6 @@
                            (term (addr (+ 1 (apply max (term (a ...))))))
                            (term (addr 0)))])
 
-(define-metafunction transient-λ
-  v-tag : v -> S
-  [(v-tag n) int]
-  [(v-tag a) dyn])
-
 ;-----------
 ; FUNCTIONS
 ;-----------
@@ -79,13 +78,15 @@
    ---
    (~> Γ x x (find-Γ x Γ))]
 
-  [(~> Γ es_1 e_1 T_1) (~ T_1 int)
-                       (~> Γ es_2 e_2 T_2) (~ T_2 int)
-                       ---
-                       (~> Γ (+ es_1 es_2) (+ (=> e_1 T_1 int) (=> e_2 T_2 int)) int)]
+  [(~> Γ es_1 e_1 T_1)
+   (~ T_1 int)
+   (~> Γ es_2 e_2 T_2)
+   (~ T_2 int)
+   ---
+   (~> Γ (+ es_1 es_2) (+ (=> e_1 T_1 int) (=> e_2 T_2 int)) int)]
 
   [(~>
-    ((f T_1 -> T_2) (x_1 T_1) (x T) ...)
+    ((f (T_1 -> T_2)) (x_1 T_1) (x T) ...)
     es
     e
     T_3)
@@ -94,8 +95,8 @@
    ---
    (~> ((x T) ...)
        (fun f (x_1 T_1) (es T_2))
-       (fun f x_1 (substitute e x_1 (d=> x_1 S)))
-       int)]
+       (fun f x_1 (substitute e x_1 (d=> x_1 (S f))))
+       (T_1 -> T_2))]
 
   [(~> Γ es_1 e_1 T)
    (> T (T_1 -> T_2))
@@ -106,12 +107,13 @@
    ---
    (~> Γ
        (es_1 es_2)
-       (substitute (d=> (f (=> e_2 T_3 T_1)) S f)
+       (substitute (d=> (f (=> e_2 T_3 T_1)) (S f))
                    f
                    (=> e_1 T (T_1 -> T_2)))
        T_2)]
   )
 
+; |T| = S
 (define-metafunction transient-λ
   || : T -> S
   [(|| dyn) dyn]
@@ -119,6 +121,7 @@
   [(|| (T_1 -> T_2)) ->]
   )
 
+; T |> T
 (define-judgment-form transient-λ
   #:mode (> I O)
   #:contract (> T T)
@@ -132,6 +135,7 @@
    (> dyn (dyn -> dyn))]
   )
 
+; T ~ T
 (define-judgment-form transient-λ
   #:mode (~ I I)
   #:contract (~ T T)
@@ -235,7 +239,58 @@
 
 (test-judgment-holds (~> () 1 1 int))
 (test-judgment-holds (~> ((asdf int) (fdsa dyn)) asdf asdf int))
-; TODO: more tests
+(test-judgment-holds (~> () (+ 2 3) (+ (=> 2 int int) (=> 3 int int)) int))
+(test-judgment-holds (~> ((x int)) (+ 1 x) (+ (=> 1 int int) (=> x int int)) int))
+(test-judgment-holds
+ (~> ()
+     (fun f (x int) ((+ 1 x) int))
+     (fun f x (+ (=> 1 int int) (=> (d=> x (int f)) int int)))
+     (int -> int)))
+
+(test-judgment-holds
+ (~> ()
+     ((fun f (x int) ((+ 1 x) int))
+      1)
+     (d=> ((=> (fun f
+                    x
+                    (+ (=> 1 int int)
+                       (=> (d=> x (int f))
+                           int
+                           int)))
+               (int -> int)
+               (int -> int))
+           (=> 1 int int))
+          (int (=> (fun f
+                    x
+                    (+ (=> 1 int int)
+                       (=> (d=> x (int f))
+                           int
+                           int)))
+               (int -> int)
+               (int -> int))))
+     int))
+(test-judgment-holds
+ (~> ()
+     ((fun f (x int) ((+ 1 x) int))
+      (+ 2 3))
+     (d=> ((=> (fun f
+                    x
+                    (+ (=> 1 int int)
+                       (=> (d=> x (int f))
+                           int
+                           int)))
+               (int -> int)
+               (int -> int))
+           (=> (+ (=> 2 int int) (=> 3 int int)) int int))
+          (int (=> (fun f
+                    x
+                    (+ (=> 1 int int)
+                       (=> (d=> x (int f))
+                           int
+                           int)))
+               (int -> int)
+               (int -> int))))
+     int))
 
 (test-equal (term (|| dyn)) (term dyn))
 (test-equal (term (|| int)) (term int))
