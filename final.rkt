@@ -63,6 +63,14 @@
 ; FUNCTIONS
 ;-----------
 
+(define-metafunction transient-λ
+  fresh-Γ : Γ -> x
+  [(fresh-Γ Γ) (new-name (Γ-to-vars Γ))])
+
+(define-metafunction transient-λ
+  fresh-σ : σ -> a
+  [(fresh-σ σ) (new-addr (σ-to-addrs σ))])
+
 ;--- FIGURE 3 ---
 
 ; Γ - es ~> e:T
@@ -85,6 +93,8 @@
    ---
    (~> Γ (+ es_1 es_2) (+ (=> e_1 T_1 int) (=> e_2 T_2 int)) int)]
 
+  ; T_3 = T'_2
+  ; e   = e'
   [(~>
     ((f (T_1 -> T_2)) (x_1 T_1) (x T) ...)
     es
@@ -98,6 +108,7 @@
        (fun f x_1 (substitute e x_1 (d=> x_1 (S f))))
        (T_1 -> T_2))]
 
+  ; T_3 = T'_1
   [(~> Γ es_1 e_1 T)
    (> T (T_1 -> T_2))
    (~> Γ es_2 e_2 T_3)
@@ -157,14 +168,6 @@
    (~ (T_1 -> T_2) (T_3 -> T_4))]
   )
 
-(define-metafunction transient-λ
-  fresh-Γ : Γ -> x
-  [(fresh-Γ Γ) (new-name (Γ-to-vars Γ))])
-
-(define-metafunction transient-λ
-  fresh-σ : σ -> a
-  [(fresh-σ σ) (new-addr (σ-to-addrs σ))])
-
 
 ;--- FIGURE 4 ---
 
@@ -222,13 +225,13 @@
    ---
    (hastype σ n int)]
 
-  [
-   ---
-   (hastype σ v dyn)]
-
   [(side-condition ,(redex-match? transient-λ (λ (x) e) (term (find-σ a σ))))
    ---
    (hastype σ a ->)]
+
+  [
+   ---
+   (hastype σ v dyn)]
   )
 
 ;-------
