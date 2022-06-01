@@ -1,20 +1,24 @@
 #lang racket
 (require redex)
 
+; INTRO: Kyle
+
 (define-language transient-λ
   (n ::= number)
   (x f ::= variable-not-otherwise-mentioned)
-  
+
+  ; David
   ;--- FIGURE 2 ---
   (es ::= x (fun f (x T) (es T)) (es es) (ref es) (! es) (:= es es) n (+ es es))
   (Γ ::= ((x T) ...))
   (T ::= int (T -> T) dyn (ref T))
-  (e ::= x v (fun f x e) (e e) (+ e e) (! e) (:= e e) (=> e T T) (d=> e (S e)))
+  (e ::= x v (fun f x e) (e e) (+ e e) (! e) (:= e e) (=> e T T) (d=> e S))
   (S ::= int -> ref dyn)
   (a ::= (addr number))
-  
+
+  ; Cindy
   ;--- FIGURE 4 ---
-  (E ::= hole (E e) (v E) (+ E e) (+ v E) (ref E) (! E) (:= E e) (=> E T T) (d=> E (S e)) (d=> v (S E)))
+  (E ::= hole (E e) (v E) (+ E e) (+ v E) (ref E) (! E) (:= E e) (=> E T T) (d=> E S) (d=> v S))
   (γ ::= (e σ) error)
   (v ::= n a)
   (σ ::= ((a h) ...))
@@ -24,6 +28,7 @@
 )
 (default-language transient-λ)
 
+; Kyle
 ;---------
 ; HELPERS
 ;---------
@@ -71,6 +76,7 @@
   fresh-σ : σ -> a
   [(fresh-σ σ) (new-addr (σ-to-addrs σ))])
 
+; David
 ;--- FIGURE 3 ---
 
 ; Γ - es ~> e:T
@@ -105,7 +111,7 @@
    ---
    (~> ((x T) ...)
        (fun f (x_1 T_1) (es T_2))
-       (fun f x_1 (substitute e x_1 (d=> x_1 (S f))))
+       (fun f x_1 (substitute e x_1 (d=> x_1 S)))
        (T_1 -> T_2))]
 
   ; T_3 = T'_1
@@ -118,7 +124,7 @@
    ---
    (~> Γ
        (es_1 es_2)
-       (substitute (d=> (f (=> e_2 T_3 T_1)) (S f))
+       (substitute (d=> (f (=> e_2 T_3 T_1)) S)
                    f
                    (=> e_1 T (T_1 -> T_2)))
        T_2)]
@@ -169,6 +175,7 @@
   )
 
 
+; Cindy
 ;--- FIGURE 4 ---
 
 ; <e, σ> --> γ
@@ -206,12 +213,12 @@
         λ5]
 
 
-   [--> ((d=> v (S a)) σ)
+   [--> ((d=> v S) σ)
         (v σ)
         (side-condition (judgment-holds (hastype σ v S)))
         λ6]
 
-   [--> ((d=> v (S a)) σ)
+   [--> ((d=> v S) σ)
         (error σ)
         (side-condition (not (judgment-holds (hastype σ v S))))
         λ7]
@@ -234,6 +241,7 @@
    (hastype σ v dyn)]
   )
 
+; Kyle
 ;-------
 ; TESTS
 ;-------
@@ -247,9 +255,8 @@
 (test-judgment-holds
  (~> ()
      (fun f (x int) ((+ 1 x) int))
-     (fun f x (+ (=> 1 int int) (=> (d=> x (int f)) int int)))
+     (fun f x (+ (=> 1 int int) (=> (d=> x int) int int)))
      (int -> int)))
-
 (test-judgment-holds
  (~> ()
      ((fun f (x int) ((+ 1 x) int))
@@ -257,20 +264,13 @@
      (d=> ((=> (fun f
                     x
                     (+ (=> 1 int int)
-                       (=> (d=> x (int f))
+                       (=> (d=> x int)
                            int
                            int)))
                (int -> int)
                (int -> int))
            (=> 1 int int))
-          (int (=> (fun f
-                    x
-                    (+ (=> 1 int int)
-                       (=> (d=> x (int f))
-                           int
-                           int)))
-               (int -> int)
-               (int -> int))))
+          int)
      int))
 (test-judgment-holds
  (~> ()
@@ -279,21 +279,66 @@
      (d=> ((=> (fun f
                     x
                     (+ (=> 1 int int)
-                       (=> (d=> x (int f))
+                       (=> (d=> x int)
                            int
                            int)))
                (int -> int)
                (int -> int))
            (=> (+ (=> 2 int int) (=> 3 int int)) int int))
-          (int (=> (fun f
+          int)
+     int))
+#;(test-judgment-holds
+ (~> ()
+     ((fun f (g (int -> int)) ((g 1) int))
+      (fun h (x int) ((+ 1 x) int)))
+     
+     (d=> ((=> (fun f g (d=> ((=> (d=> g ->)
+                                 (int -> int)
+                                 (int -> int))
+                             (=> 1 int int))
+                            int))
+               ((int -> int) -> int)
+               ((int -> int) -> int))
+           (=> (fun h x (+ (=> 1 int int)
+                           (=> (d=> x int)
+                               int
+                               int)))
+               (int -> int)
+               (int -> int)))
+          int)
+     int))
+#;(test-judgment-holds
+ (~> ()
+     ((fun f
+           (g (int -> int))
+           ((fun h
+                 (ff ((int -> int) -> dyn))
+                 ((ff g) (int -> dyn)))
+            (((int -> int) -> dyn) -> (int -> dyn))))
+      (fun g
+           (x int)
+           ((+ 1 x) int)))
+     (d=> ((=> (fun f
+                    g
+                    (fun h
+                         ff
+                         (d=> ((=> (d=> ff ->)
+                                   ((int -> int) -> dyn)
+                                   ((int -> int) -> dyn))
+                               (=> (d=> g ->)
+                                   (int -> int)
+                                   (int -> int)))
+                              dyn)))
+               ((int -> int) -> (((int -> int) -> dyn) -> (int -> dyn)))
+               ((int -> int) -> (((int -> int) -> dyn) -> (int -> dyn))))
+           (=> (fun g
                     x
                     (+ (=> 1 int int)
-                       (=> (d=> x (int f))
-                           int
-                           int)))
+                       (=> (d=> x int) int int)))
                (int -> int)
-               (int -> int))))
-     int))
+               (int -> int)))
+          ->)
+     (((int -> int) -> dyn) -> (int -> dyn))))
 
 (test-equal (term (|| dyn)) (term dyn))
 (test-equal (term (|| int)) (term int))
@@ -333,8 +378,7 @@
      (load-lang
       (term (fun f x 1))
       ))))
- (term ((addr 0) (((addr 0) (λ (x) 1))))
-       ))
+ (term ((addr 0) (((addr 0) (λ (x) 1))))))
 
 (test-equal
  (first
@@ -387,7 +431,7 @@
      (apply-reduction-relation*
       -->λ
       (load-lang
-       (term (d=> 1 (int (addr 0))))
+       (term (d=> 1 int))
        )))))
  (term 1))
 
@@ -398,7 +442,7 @@
      (apply-reduction-relation*
       -->λ
       (load-lang
-       (term (d=> 1 (dyn (addr 0))))
+       (term (d=> 1 dyn))
        )))))
  (term 1))
 
@@ -409,6 +453,28 @@
      (apply-reduction-relation*
       -->λ
       (load-lang
-       (term (d=> 1 (-> (addr 0))))
+       (term (d=> 1 ->))
        )))))
  (term error))
+
+(test-equal
+ (first
+  (term
+   ,(first
+     (apply-reduction-relation*
+      -->λ
+      (load-lang
+       (term (+ (=> 1 int int) (=> 2 int int)))
+       )))))
+ (term 3))
+
+(test-equal
+ (first
+  (term
+   ,(first
+     (apply-reduction-relation*
+      -->λ
+      (load-lang
+       (term (+ (+ 2 3) (+ 1 3)))
+       )))))
+ (term 9))
