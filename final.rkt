@@ -281,14 +281,14 @@
      int))
 (test-judgment-holds
  (~> ()
-     ((fun add1 (x dyn) ((+ 1 x) dyn))
+     ((fun add1 (x dyn) ((+ 1 x) int))
       1)
      (d=> ((=> (fun add1 x (+ (=> 1 int int) (=> (d=> x dyn) dyn int)))
-               (dyn -> dyn)
-               (dyn -> dyn))
+               (dyn -> int)
+               (dyn -> int))
            (=> 1 int dyn))
-          dyn)
-     dyn))
+          int)
+     int))
 
 ; though this is translatable and passes through ~>, it can be seen that this is not evaluatable.
 (test-judgment-holds
@@ -403,6 +403,32 @@
       dyn)
 
      dyn))
+
+; recursive, infinite
+(test-judgment-holds
+ (~> ()
+     ((fun f (x dyn) ((f (+ 1 x)) int)) 0)
+     (d=>
+      ((=>
+        (fun f
+             x
+             (d=>
+              ((=>
+                f
+                (dyn -> int)
+                (dyn -> int))
+               (=>
+                (+
+                 (=> 1 int int)
+                 (=> (d=> x dyn) dyn int))
+                int
+                dyn))
+              int))
+        (dyn -> int)
+        (dyn -> int))
+       (=> 0 int dyn))
+      int)
+     int))
 
 (test-equal (term (|| dyn)) (term dyn))
 (test-equal (term (|| int)) (term int))
@@ -528,9 +554,15 @@
      (apply-reduction-relation*
       -->λ
       (load-lang
-       (term (+ (=> 1 int int) (=> 2 int int)))
+       (term (+ (=> 1 int int) (d=> 2 int)))
        )))))
  (term 3))
+(traces -->λ (load-lang
+       (term (+ (=> 1 int int) (d=> 2 int)))
+       ))
+(traces -->λ (load-lang
+       (term (+ (=> 1 int int) (d=> 2 ->)))
+       ))
 
 (test-equal
  (first
@@ -550,9 +582,13 @@
      (apply-reduction-relation*
       -->λ
       (load-lang
-       (term ((fun f x (+ x 1)) 3))
+       (term ((fun f x (+ x 1)) 1))
        )))))
- (term 4))
+ (term 2))
+#;(traces -->λ(load-lang
+       (term ((fun f x (+ x 1)) 1))
+       ))
+
 
 (test-equal
  (first
@@ -568,7 +604,7 @@
                   int))
        )))))
  (term 2))
-#;(traces -->λ (load-lang (term (d=> ((=> (fun add1 x (+ (=> 1 int int) (=> (d=> x int) int int)))
+(traces -->λ (load-lang (term (d=> ((=> (fun add1 x (+ (=> 1 int int) (=> (d=> x int) int int)))
                                         (int -> int)
                                         (int -> int))
                                     (=> 1 int int))
@@ -628,3 +664,35 @@
               (term
                ((fun f x (x 1))
                 (fun g x (+ 1 x))))))
+
+#;(traces -->λ (load-lang (term (d=>
+      ((=>
+        (d=>
+         ((=>
+           (fun f g
+                (fun hh ff
+                     (d=>
+                      ((=>
+                        (d=> ff ->)
+                        ((int -> int) -> dyn)
+                        ((int -> int) -> dyn))
+                       (=> (d=> g ->) (int -> int) (int -> int)))
+                      dyn)))
+           ((int -> int) -> (((int -> int) -> dyn) -> dyn))
+           ((int -> int) -> (((int -> int) -> dyn) -> dyn)))
+          (=> (fun add1 x (+ (=> 1 int int) (=> (d=> x int) int int))) (int -> int) (int -> int)))
+         ->)
+        (((int -> int) -> dyn) -> dyn)
+        (((int -> int) -> dyn) -> dyn))
+       (=>
+        (fun f_1 asdf
+             (d=>
+              ((=>
+                (d=> asdf ->)
+                (int -> dyn)
+                (int -> dyn))
+               (=> 2 int int))
+              dyn))
+        ((int -> dyn) -> dyn)
+        ((int -> int) -> dyn)))
+      dyn))))
